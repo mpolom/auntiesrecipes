@@ -68,30 +68,90 @@ function parseRecipe(name, html) {
     recipe.url = recipe.url.substring(0, recipe.url.length - 5);
     const $ = cheerio.load(html);
 
-    recipe.title = $('h1.content-title__text').text().trim();
+    // Try to extract structured JSON-LD first (many pages include a Recipe object)
+    function extractJsonLdRecipe() {
+        const scripts = $('script[type="application/ld+json"]').toArray();
+        for (const s of scripts) {
+            const text = $(s).contents().text().trim();
+            if (!text) continue;
+            try {
+                const data = JSON.parse(text);
+                const found = [];
+                const walk = (obj) => {
+                    if (!obj) return;
+                    if (Array.isArray(obj)) return obj.forEach(walk);
+                    if (obj['@graph']) walk(obj['@graph']);
+                    if (obj['@type'] === 'Recipe' || (Array.isArray(obj['@type']) && obj['@type'].includes('Recipe'))) found.push(obj);
+                };
+                walk(data);
+                if (found.length) return found[0];
+            } catch (e) {
+                // ignore JSON parse errors and continue
+            }
+        }
+        return null;
+    }
+
+    const jsonLd = extractJsonLdRecipe();
+
+    // Title
+    recipe.title = (jsonLd && (jsonLd.name || jsonLd.headline)) || $('h1.content-title__text').text().trim();
     if (!recipe.title) return null;
 
-    $('.recipe-ingredients__list-item').each(function () {
-        const text = $(this).text();
-        const lineBreak = text.indexOf('\n');
-        if (lineBreak > 0) recipe.ingredients.push(text.substring(0, lineBreak));
-        else recipe.ingredients.push(text);
-    });
+    // Ingredients
+    if (jsonLd && Array.isArray(jsonLd.recipeIngredient) && jsonLd.recipeIngredient.length) {
+        recipe.ingredients = jsonLd.recipeIngredient.map(i => (typeof i === 'string' ? i.trim() : ''));
+    } else {
+        $('.recipe-ingredients__list-item').each(function () {
+            const text = $(this).text();
+            const lineBreak = text.indexOf('\n');
+            if (lineBreak > 0) recipe.ingredients.push(text.substring(0, lineBreak));
+            else recipe.ingredients.push(text);
+        });
+    }
 
-    $('.recipe-method__list-item-text').each(function () {
-        recipe.method.push($(this).text());
-    });
+    // Method / instructions
+    if (jsonLd && Array.isArray(jsonLd.recipeInstructions) && jsonLd.recipeInstructions.length) {
+        // recipeInstructions can be strings or objects with 'text' or array of HowToStep
+        jsonLd.recipeInstructions.forEach(item => {
+            if (!item) return;
+            if (typeof item === 'string') recipe.method.push(item.trim());
+            else if (item.text) recipe.method.push(item.text.trim());
+            else if (Array.isArray(item)) item.forEach(sub => { if (sub && sub.text) recipe.method.push(sub.text.trim()); });
+            else if (item['@type'] === 'HowToStep' && item.text) recipe.method.push(item.text.trim());
+        });
+    } else {
+        $('.recipe-method__list-item-text').each(function () {
+            recipe.method.push($(this).text());
+        });
+    }
 
-    recipe.time = {
-        preparation: $('.recipe-metadata__prep-time').text(),
-        preparationMins: parseTime($('.recipe-metadata__prep-time').attr('content')) || 0,
-        cooking: $('.recipe-metadata__cook-time').text(),
-        cookingMins: parseTime($('.recipe-metadata__cook-time').attr('content')) || 0
-    };
-    recipe.time.totalMins = (recipe.time.preparationMins || 0) + (recipe.time.cookingMins || 0);
+    // Times
+    recipe.time = { preparation: null, preparationMins: 0, cooking: null, cookingMins: 0 };
+    if (jsonLd) {
+        recipe.time.preparation = jsonLd.prepTime || jsonLd.preparation || null;
+        recipe.time.preparationMins = parseTime(jsonLd.prepTime || jsonLd.preparation) || 0;
+        recipe.time.cooking = jsonLd.cookTime || null;
+        recipe.time.cookingMins = parseTime(jsonLd.cookTime) || 0;
+        if (!recipe.time.totalMins) recipe.time.totalMins = parseTime(jsonLd.totalTime) || (recipe.time.preparationMins + recipe.time.cookingMins);
+    }
+    if (!recipe.time.totalMins) {
+        recipe.time.preparation = recipe.time.preparation || $('.recipe-metadata__prep-time').text();
+        recipe.time.preparationMins = recipe.time.preparationMins || parseTime($('.recipe-metadata__prep-time').attr('content')) || 0;
+        recipe.time.cooking = recipe.time.cooking || $('.recipe-metadata__cook-time').text();
+        recipe.time.cookingMins = recipe.time.cookingMins || parseTime($('.recipe-metadata__cook-time').attr('content')) || 0;
+        recipe.time.totalMins = (recipe.time.preparationMins || 0) + (recipe.time.cookingMins || 0);
+    }
 
-    recipe.serves = $('.recipe-metadata__serving').text();
-    recipe.image = $('meta[property="og:image"]').attr('content');
+    // Serves, image, dietary flags
+    recipe.serves = (jsonLd && (jsonLd.recipeYield || jsonLd.yield)) || $('.recipe-metadata__serving').text();
+    if (jsonLd && jsonLd.image) {
+        if (typeof jsonLd.image === 'string') recipe.image = jsonLd.image;
+        else if (Array.isArray(jsonLd.image) && jsonLd.image.length) recipe.image = jsonLd.image[0];
+        else if (jsonLd.image.url) recipe.image = jsonLd.image.url;
+    } else {
+        recipe.image = $('meta[property="og:image"]').attr('content');
+    }
     if (recipe.image && recipe.image.indexOf('bbc_placeholder.png') > -1) delete recipe.image;
     recipe.isVegetarian = $('.recipe-metadata__dietary-vegetarian').length ? true : false;
     recipe.recommendations = parseInt($('.recipe-metadata__recommendations').text()) || 0;

@@ -1,0 +1,38 @@
+name: Weekly scrape
+
+on:
+  schedule:
+    # Runs weekly at 03:00 UTC on Monday
+    - cron: '0 3 * * 1'
+  workflow_dispatch: {}
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install downloader deps
+        run: |
+          if [ -f downloader/package.json ]; then
+            cd downloader
+            npm ci
+            cd -
+          fi
+
+      - name: Install scraper deps
+        run: |
+          if [ -f scraper/package.json ]; then
+            cd scraper
+            npm ci
+            cd -
+          fi
+
+      - name: Run weekly scrape
+        run: bash scripts/run_weekly_scrape.sh
