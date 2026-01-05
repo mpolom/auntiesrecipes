@@ -43,8 +43,10 @@ jobs:
           fi
 
       - name: scrape
-        run: node scraper/scrape.js
-
+        run: |
+          node downloader/index.js
+          node scraper/scrape.js
+         
       - name: Upload scrape artifacts
         if: always()
         uses: actions/upload-artifact@v4
