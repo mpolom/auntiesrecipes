@@ -11,6 +11,6 @@
   "author": "Howard Yeend",
   "license": "ISC",
   "dependencies": {
-    "cheerio": "^0.20.0"
+    "cheerio": "^1.1.2"
   }
 }

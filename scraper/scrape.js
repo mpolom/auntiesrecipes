@@ -16,7 +16,7 @@ This script is very loosely based on https://github.com/forbesg/bbc-good-food-re
 */
 "use strict";
 
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import { readdir, readFile as fsReadFile, writeFile } from 'fs/promises';
 
 const recipeDir = process.env.RECIPE_DIR || '../recipe_download/';
