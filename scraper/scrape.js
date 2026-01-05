@@ -18,23 +18,31 @@ This script is very loosely based on https://github.com/forbesg/bbc-good-food-re
 
 import * as cheerio from 'cheerio';
 import { readdir, readFile as fsReadFile, writeFile } from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const recipeDir = process.env.RECIPE_DIR || '../recipe_download/';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const recipeDir = process.env.RECIPE_DIR || path.join(__dirname, '..', 'downloader', 'html');
 
 async function readFiles(dirname, onFileContent, onError) {
     try {
         const filenames = await readdir(dirname);
         const limit = 200;
         let index = 0;
+        let processed = 0;
+        const maxFiles = parseInt(process.env.MAX_FILES || '0') || 0;
 
         async function worker() {
             while (true) {
                 const i = index++;
                 if (i >= filenames.length) break;
+                if (maxFiles > 0 && processed >= maxFiles) break;
                 const name = filenames[i];
                 try {
                     const content = await fsReadFile(`${dirname}/${name}`, 'utf8');
                     await onFileContent(`${dirname}/${name}`, content);
+                    processed++;
                 } catch (err) {
                     onError(err);
                 }
