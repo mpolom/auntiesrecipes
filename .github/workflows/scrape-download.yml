@@ -43,7 +43,7 @@ jobs:
           fi
 
       - name: scrape
-        run: npm scrape.js
+        run: node scrape.js
 
       - name: Upload scrape artifacts
         if: always()
