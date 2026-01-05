@@ -17,9 +17,10 @@ This script is very loosely based on https://github.com/forbesg/bbc-good-food-re
 "use strict";
 
 import * as cheerio from 'cheerio';
-import { readdir, readFile as fsReadFile, writeFile } from 'fs/promises';
+import { readdir, readFile as fsReadFile, writeFile, mkdir, access } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { constants as fsConstants } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,7 +71,7 @@ const titleDB = {};
 const shorterLookups = [];
 const db = {};
 
-function parseRecipe(name, html) {
+async function parseRecipe(name, html) {
     const recipe = { ingredients: [], method: [] };
     recipe.url = name.substring(recipeDir.length + 1);
     recipe.url = recipe.url.substring(0, recipe.url.length - 5);
@@ -174,14 +175,49 @@ function parseRecipe(name, html) {
     if (recipe.recommendations) recipeData.r = recipe.recommendations;
 
     titleDB[recipe.url] = recipeData;
-    return recipe.url;
+    return recipe;
 }
 
 // Run
 (async () => {
     try {
         await readFiles(recipeDir, async (name, html) => {
-            parseRecipe(name, html);
+            try {
+                const recipe = await parseRecipe(name, html);
+                // download lead image if present
+                if (process.env.DOWNLOAD_IMAGES === '1' && recipe && recipe.image) {
+                    try {
+                        const imagesDir = path.join(__dirname, '..', 'downloader', 'html', 'images');
+                        await mkdir(imagesDir, { recursive: true });
+                        const imgUrl = recipe.image;
+                        let ext = '.jpg';
+                        try {
+                            const p = new URL(imgUrl).pathname;
+                            const e = path.extname(p);
+                            if (e) ext = e;
+                        } catch (e) {
+                            // ignore
+                        }
+                        const imgOut = path.join(imagesDir, recipe.url + ext);
+                        // only fetch if not exists
+                        try {
+                            await access(imgOut, fsConstants.F_OK);
+                        } catch (e) {
+                            const res = await fetch(imgUrl, { headers: { 'User-Agent': 'auntiesrecipes image-downloader' } });
+                            if (res.ok) {
+                                const buf = Buffer.from(await res.arrayBuffer());
+                                await writeFile(imgOut, buf);
+                            }
+                        }
+                        // store relative path for search UI
+                        titleDB[recipe.url].img = path.join('downloader', 'html', 'images', recipe.url + ext).replace(/\\/g, '/');
+                    } catch (e) {
+                        console.error('image download error for', recipe.url, e.message || e);
+                    }
+                }
+            } catch (e) {
+                console.error('parse error for', name, e.message || e);
+            }
         }, (err) => console.error(err));
 
         await writeFile('titles.json', JSON.stringify(titleDB));

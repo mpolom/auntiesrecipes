@@ -24,6 +24,7 @@ while [ "$#" -gt 0 ]; do
     --dry-run) DRY_RUN=1; shift ;;
     --limit) LIMIT="$2"; shift 2 ;;
     --limit=*) LIMIT="${1#*=}"; shift ;;
+    --images) IMAGES=1; shift ;;
     -h|--help) show_usage; exit 0 ;;
     *) echo "Unknown arg: $1"; show_usage; exit 1 ;;
   esac
@@ -44,6 +45,9 @@ if [ "$DRY_RUN" -eq 1 ]; then
   if [ "$LIMIT" -ne 0 ]; then
     echo "Would set MAX_FILES=$LIMIT"
   fi
+  if [ "$IMAGES" -ne 0 ]; then
+    echo "Would set DOWNLOAD_IMAGES=1"
+  fi
   echo "DRY RUN complete"
   exit 0
 fi
@@ -63,6 +67,10 @@ echo "Running scraper"
 if [ "$LIMIT" -ne 0 ]; then
   export MAX_FILES="$LIMIT"
   echo "MAX_FILES=$MAX_FILES"
+fi
+if [ "$IMAGES" -ne 0 ]; then
+  export DOWNLOAD_IMAGES=1
+  echo "DOWNLOAD_IMAGES=1"
 fi
 RECIPE_DIR="$ROOT_DIR/downloader/html" node scraper/scrape.js
 
