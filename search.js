@@ -16,10 +16,13 @@ $(function () {
     function appendRecipe(url) {
         prom.done(function (recipes) {
             var el = $('<li></li>');
-
-            if (recipes[url].i) {
-                var imgurl = '//ichef.bbci.co.uk/food/ic/food_16x9_88/recipes/' + recipes[url].u + '_16x9.jpg';    
-                    var imgstyle= ' style="background-image: url(' + imgurl + ');"';
+            var imgstyle = '';
+            if (recipes[url].img) {
+                var imgurl = (recipes[url].img.indexOf('http') === 0 || recipes[url].img.indexOf('//') === 0) ? recipes[url].img : './' + recipes[url].img;
+                imgstyle = ' style="background-image: url(' + imgurl + ');"';
+            } else if (recipes[url].i) {
+                var imgurl = '//ichef.bbci.co.uk/food/ic/food_16x9_88/recipes/' + recipes[url].u + '_16x9.jpg';
+                imgstyle = ' style="background-image: url(' + imgurl + ');"';
             }
             el.append('<a rel="external" target="_blank" href="http://www.bbc.co.uk/food/recipes/' + recipes[url].u + '"><span class="resimg"' + imgstyle + '></span><span class="title">' + recipes[url].t + '</span></a>');
             if (recipes[url].v) {
