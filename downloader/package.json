@@ -1,6 +1,7 @@
 {
   "name": "downloader",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -10,8 +11,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "async": "^2.0.0-rc.5",
-    "htmlparser2": "^3.9.0",
-    "request": "^2.72.0"
+    "htmlparser2": "^3.9.0"
   }
 }

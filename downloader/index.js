@@ -1,72 +1,85 @@
 "use strict"
 
-let request = require('request');
-let Parser = require('./parser.js');
-let async = require('async');
-let fs = require('fs');
+import Parser from './parser.js';
+import { access, writeFile } from 'fs/promises';
+import { constants as fsConstants } from 'fs';
 
-let concurrent_http_requests = 10;
+const concurrent_http_requests = 10;
 
-function getSiteMap() {
-  return new Promise((resolve, reject) => {
-     request.get({"url": "http://www.bbc.co.uk/food/sitemap.xml"}, (err,res,body) => {
-         var parser = new Parser();
-         parser.parse(body, (err, doc) => {
-            resolve(doc);
-         });
+async function getSiteMap() {
+   const res = await fetch('http://www.bbc.co.uk/food/sitemap.xml', { headers: { 'User-Agent': 'auntiesrecipes downloader' } });
+   const body = await res.text();
+   const parser = new Parser();
+   return new Promise((resolve, reject) => {
+      parser.parse(body, (err, doc) => {
+         if (err) return reject(err);
+         resolve(doc);
       });
    });
 }
 
 function getOutfile(url) {
-   let outfile = url.substring(url.lastIndexOf("\/\/")+2);
-   outfile = outfile.replace(/\//g, "_");
-   outfile = outfile.replace(/\./g, "_") + ".html";
+   let outfile = url.substring(url.lastIndexOf('//') + 2);
+   outfile = outfile.replace(/\//g, '_');
+   outfile = outfile.replace(/\./g, '_') + '.html';
    return outfile;
 }
 
-getSiteMap()
-.then((urls)=> {
-    return new Promise((resolve, reject) => {
-        var tasks = [];
-        urls.forEach((url) => {
-            if(url.length > 0) {
-                let outfile = getOutfile(url);
-                tasks.push({ url: url, outfile: outfile });
-            }
-        });
-        resolve(tasks);
-    });
-})
-.then(tasks => {
-  console.log("Downloading: " + tasks.length+ " URLs.");
-  var q = async.queue((task, done) => {
-      process.stdout.write(".")
+async function fileExists(path) {
+   try {
+      await access(path, fsConstants.F_OK);
+      return true;
+   } catch (e) {
+      return false;
+   }
+}
 
-      fs.exists("html/" + task.outfile, function(exists) {
-        if(exists) {
-           process.stdout.write("/")
-           return done();
-        }
-        var req = {url:task.url, headers: {"User-Agent":"auntiesreciples downloader" }};
-        request.get(req, (err,res,body) => {
-          fs.writeFile("html/" + task.outfile, body, "utf8", () => {
-             process.stdout.write("-")
-             // console.log("Written: " + task.outfile);
-             setImmediate(done);
-          });
-        });
-       });
-  }, concurrent_http_requests);
-  q.drain = () => {
-      console.log("Everything has been downloaded.")
-  };
-  for(let i = 0;i < tasks.length; i++) {
-     q.push(tasks[i]);
-  }
-//  tasks.forEach((t)=> { q.push(t); });
-})
-.catch((e) => {
-   console.error(e);
-});
+async function downloadTask(task) {
+   process.stdout.write('.');
+   const outPath = `html/${task.outfile}`;
+   if (await fileExists(outPath)) {
+      process.stdout.write('/');
+      return;
+   }
+   const res = await fetch(task.url, { headers: { 'User-Agent': 'auntiesrecipes downloader' } });
+   const body = await res.text();
+   await writeFile(outPath, body, 'utf8');
+   process.stdout.write('-');
+}
+
+async function run() {
+   try {
+      const urls = await getSiteMap();
+      const tasks = urls.map(u => (u && u.toString().trim()) || '')
+         .filter(u => u.length)
+         .map(url => {
+            try {
+               const parsed = new URL(url);
+               if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('unsupported protocol');
+               return { url, outfile: getOutfile(url) };
+            } catch (e) {
+               return null;
+            }
+         })
+         .filter(Boolean);
+      console.log('Downloading: ' + tasks.length + ' URLs.');
+
+      let index = 0;
+      async function worker() {
+         while (true) {
+            const i = index++;
+            if (i >= tasks.length) break;
+            await downloadTask(tasks[i]);
+         }
+      }
+
+      const workers = Array.from({ length: Math.min(concurrent_http_requests, tasks.length) }, () => worker());
+      await Promise.all(workers);
+      console.log('Everything has been downloaded.');
+   } catch (e) {
+      console.error(e);
+   }
+}
+
+run();
 

@@ -1,39 +1,39 @@
-
 "use strict"
 
-var htmlparser = require('htmlparser2');
+import * as htmlparser from 'htmlparser2';
 
-module.exports = class Parser {
-  parse(body, done) {
-    var items = [];
+export default class Parser {
+    parse(body, done) {
+        const items = [];
 
-    var openTag;
-    var inItem=false;
-    var item; 
+        let openTag;
+        let inItem = false;
 
-    var parser = new htmlparser.Parser({
-        onopentag: function(name, attribs) {
-            if(name == "loc"){
-                inItem=true;
+        const parser = new htmlparser.Parser({
+            onopentag(name, attribs) {
+                if (name === 'loc') {
+                    inItem = true;
+                }
+                openTag = name;
+            },
+            ontext(text) {
+                const t = text && text.toString().trim();
+                if (inItem && t && t.length > 0) {
+                    items.push(t);
+                }
+            },
+            onclosetag(name) {
+                if (name === 'loc') {
+                    inItem = false;
+                }
+                openTag = null;
+            },
+            onend() {
+                done(null, items);
             }
-            openTag = name;
-        },
-        ontext: function(text) { 
-            if(inItem && text.length > 0) {
-                items.push(text)
-            }
-        },
-        onclosetag: function(name) {
-            if (name=="loc") {
-                inItem=false;
-            }
-            openTag=null;
-        },
-        onend: function() {
-            done(null, items);
-        }
-        }, {decodeEntities: true});
-    parser.write(body);
-    parser.end();
-  }
-};
+        }, { decodeEntities: true });
+
+        parser.write(body);
+        parser.end();
+    }
+}
