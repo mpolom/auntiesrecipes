@@ -36,3 +36,12 @@ jobs:
 
       - name: Run weekly scrape
         run: bash scripts/run_weekly_scrape.sh
+
+      - name: Upload scrape artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-output
+          path: |
+            titles.json
+            downloader/html/images/**
