@@ -1,9 +1,13 @@
 "use strict"
 
 import Parser from './parser.js';
-import { access, writeFile } from 'fs/promises';
+import { access, writeFile, mkdir } from 'fs/promises';
 import { constants as fsConstants } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const concurrent_http_requests = 10;
 
 async function getSiteMap() {
@@ -36,7 +40,9 @@ async function fileExists(path) {
 
 async function downloadTask(task) {
    process.stdout.write('.');
-   const outPath = `html/${task.outfile}`;
+   const htmlDir = path.join(__dirname, 'html');
+   await mkdir(htmlDir, { recursive: true });
+   const outPath = path.join(htmlDir, task.outfile);
    if (await fileExists(outPath)) {
       process.stdout.write('/');
       return;
