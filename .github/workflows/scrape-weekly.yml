@@ -35,7 +35,7 @@ jobs:
           fi
 
       - name: Run weekly scrape
-        run: bash scripts/run_weekly_scrape.sh
+        run: bash scripts/run_weekly_scrape.sh --images
 
       - name: Upload scrape artifacts
         if: always()
