@@ -1,7 +1,8 @@
 # auntiesrecipes
+
 A searchable archive of BBC Food Recipes.
 
-Homepage: https://www.auntiesrecipes.co.uk
+Homepage: <https://www.auntiesrecipes.co.uk>
 
 Features I would like help with:
 
@@ -10,6 +11,7 @@ Features I would like help with:
 * Download all the images and add them to the repo so I don't have to hotlink them
 * Better isVegetarian detection in the scraper
 * Search option based on prep/cooking/total time
+* More dietary requirements (vegan, gluten-free, etc)
 
 ## Download tool
 
@@ -18,10 +20,10 @@ The download can be done through a shell script and `wget` or through a Node.js 
 * Sitemap.xml is pulled (this file is huge and contains each recipe)
 * Each HTML file is pulled at a rate of 3-10 at a time depending on config
 
-### Installation
+### Download Installation
 
 ```
-$ npm install
+npm install
 ```
 
 ### Running the tool
@@ -29,28 +31,27 @@ $ npm install
 Note: this will take a long time and creates over 1GB of stored text.
 
 ```
-$ node index.js
+node index.js
 ```
 
 ## Scraping tool
 
 First run the download tool to gather all the HTML files from the BBC website.
 
-### Installation
+### Scraping Installation
 
 Use `npm` to install dependencies such as Cheerio.
 
 ```
-$ cd scraper
-$ npm install
+cd scraper
+npm install
 ```
 
 ### Running the scrape
 
 ```
-$ cd scraper
-$ node scrape.js
+cd scraper
+node scrape.js
 ```
 
-Optional: environmental variable RECIPE_DIR can be set. 
-
+Optional: environmental variable RECIPE_DIR can be set.
